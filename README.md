@@ -1,10 +1,10 @@
-# 🚀 SkillPilot: AI-Powered Learning Coach
+# 🚀 Eunoia: AI-Powered Learning Coach
 
 > "Stop researching, start learning."
 
 ## 💡 Core Problem Solved
 
-Learners waste significant time and mental effort curating a learning path and finding reliable resources. SkillPilot instantly generates structured, personalized roadmaps.
+Learners waste significant time and mental effort curating a learning path and finding reliable resources. **Eunoia** instantly generates structured, personalized roadmaps.
 
 ## ✨ Features (Minimum Viable Product - MVP)
 
@@ -29,9 +29,9 @@ This project is built using the industry-standard MERN stack with modern AI inte
 
 ## 🎯 Success Criteria (The Definition of "Done")
 
-1. [User can create a learning goal and get an AI-generated roadmap.]
-2. [User can track and update learning progress.]
-3. [AI dynamically recommends the next learning step.]
+1. User can create a learning goal and get an AI-generated roadmap.
+2. User can track and update learning progress.
+3. AI dynamically recommends the next learning step.
 
 ## 🏗️ Architecture & Build Order (Our Professional Roadmap)
 
@@ -51,4 +51,5 @@ _This section will be filled out in Phase 3._
 
 - Full Authentication (Sign-up/Login)
 - Advanced Resource Curation (RAG/Vector DB integration)
-- [Other Nice-to-Have Features...]
+- AI Learning Coach Chat
+- Progress Analytics + Streaks
