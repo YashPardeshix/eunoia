@@ -1,5 +1,6 @@
 require("dotenv").config({ path: "../.env" });
 const goalRoutes = require("./routes/goalRoutes");
+const moduleRoutes = require("./routes/moduleRoutes");
 const { errorHandler } = require("./middleware/errorMiddleware");
 const DB = require("./db");
 
@@ -11,6 +12,8 @@ DB();
 app.use(express.json());
 
 app.use("/api/goals", goalRoutes);
+
+app.use("/api/modules", moduleRoutes);
 
 app.use(errorHandler);
 
