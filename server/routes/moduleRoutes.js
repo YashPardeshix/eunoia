@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { updatedModue } = require("../controllers/moduleController");
+const { updateModule } = require("../controllers/moduleController");
 
 router.put("/:id", updateModule);
 

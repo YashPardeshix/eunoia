@@ -24,3 +24,5 @@ const updateModule = asyncHandler(async (req, res) => {
     data: updatedModule,
   });
 });
+
+module.exports = { updateModule };

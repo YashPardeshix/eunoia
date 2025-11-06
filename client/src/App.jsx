@@ -1,5 +1,7 @@
+import React from "react";
 import useLocalStorage from "./hooks/useLocalStorage";
 import GoalInputForm from "./components/GoalInputForm";
+import DashboardContainer from "./components/DashboardContainer";
 import "./index.css";
 
 function App() {
@@ -10,27 +12,15 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <h1 className="text-4xl font-bold text-center text-indigo-700 mb-10">
-        Eunoia: The AI Learning Coach
-      </h1>
+    <div>
+      <h1>Eunoia: The AI Learning Coach</h1>
 
-      <div className="max-w-xl mx-auto">
+      <div>
         {goalPlan ? (
-          <div className="text-center p-10 bg-white rounded-xl shadow">
-            <h2 className="text-2xl font-semibold">
-              Goal: {goalPlan.goalTitle}
-            </h2>
-            <p className="text-gray-500">Status: {goalPlan.progressStatus}</p>
-            <p className="mt-4">Dashboard will be rendered here...</p>
-
-            <button
-              onClick={() => setGoalPlan(null)}
-              className="mt-4 text-sm text-red-500 hover:text-red-700"
-            >
-              Start New Goal (Reset)
-            </button>
-          </div>
+          <DashboardContainer
+            goalPlan={goalPlan}
+            onGoalUpdate={() => setGoalPlan({ ...goalPlan })}
+          />
         ) : (
           <GoalInputForm onGoalCreated={handleGoalCreated} />
         )}
