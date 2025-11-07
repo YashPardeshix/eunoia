@@ -4,27 +4,26 @@ const LearningModuleSchema = new mongoose.Schema(
   {
     goalPlanId: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true,
       ref: "GoalPlan",
+      required: true,
     },
     title: {
       type: String,
       required: true,
+      trim: true,
     },
-    description: {
-      type: String,
-    },
-    order: {
-      type: Number,
-    },
+    description: String,
+    order: Number,
     isCompleted: {
       type: Boolean,
       default: false,
     },
-    resourcesIds: {
-      type: [mongoose.Schema.Types.ObjectId],
-      default: [],
-    },
+    resourceIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Resource",
+      },
+    ],
   },
   { timestamps: true }
 );
