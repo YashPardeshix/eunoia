@@ -1,0 +1,17 @@
+.glow-title {
+  text-shadow: 0 0 20px rgba(201, 169, 97, 0.3);
+}
+
+@keyframes ai-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(201, 169, 97, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(201, 169, 97, 0.5);
+  }
+}
+
+.ai-glow {
+  animation: ai-glow 2s ease-in-out infinite;
+}

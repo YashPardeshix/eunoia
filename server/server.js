@@ -3,6 +3,7 @@ const goalRoutes = require("./routes/goalRoutes");
 const moduleRoutes = require("./routes/moduleRoutes");
 const { errorHandler } = require("./middleware/errorMiddleware");
 const DB = require("./db");
+const resourceRoutes = require("./routes/resourceRoutes");
 
 const express = require("express");
 const app = express();
@@ -14,6 +15,8 @@ app.use(express.json());
 app.use("/api/goals", goalRoutes);
 
 app.use("/api/modules", moduleRoutes);
+
+app.use("/api/resources", resourceRoutes);
 
 app.use(errorHandler);
 
