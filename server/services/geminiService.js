@@ -1,106 +1,114 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const path = require("path");
-require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
+require("dotenv").config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash-exp"];
 
-async function retry(fn, attempts = 3, delay = 1000) {
-  let lastError;
-
-  for (let i = 0; i < attempts; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-
-      const overloaded =
-        err.message?.includes("503") ||
-        err.message?.includes("overloaded") ||
-        err.message?.includes("Service Unavailable");
-
-      if (!overloaded) break;
-
-      if (i < attempts - 1) {
-        console.log(`Gemini overloaded. Retrying... (${i + 1}/${attempts})`);
-        await new Promise((res) => setTimeout(res, delay));
-      }
-    }
-  }
-
-  throw lastError;
+function getClient(modelName) {
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  return genAI.getGenerativeModel({ model: modelName });
 }
 
-const generateRoadmapFromGemini = async (goalTitle, userLevel) => {
-  const prompt = `
-    You are an expert learning roadmap planner. 
-Generate a JSON object ONLY with the following structure:
+async function runModel(prompt, modelName) {
+  try {
+    const model = getClient(modelName);
+    const result = await model.generateContent(prompt);
+    const text = result.response
+      .text()
+      .replace(/```json|```/g, "")
+      .trim();
+    return { data: JSON.parse(text), modelUsed: modelName };
+  } catch (err) {
+    return { data: null, error: err, modelUsed: modelName };
+  }
+}
 
+async function tryFallback(prompt) {
+  for (const model of MODELS) {
+    const out = await runModel(prompt, model);
+    if (out.data && !out.error) return out;
+    console.log(`Model failed or invalid JSON: ${model}`);
+  }
+  return { data: null, modelUsed: null };
+}
+
+async function generateFullRoadmap(goalTitle, userLevel) {
+  const prompt = `
+You are an expert learning roadmap architect. Return VALID JSON ONLY.
+
+GOAL: "${goalTitle}"
+LEVEL: ${userLevel}
+
+OUTPUT:
 {
   "modules": [
     {
       "order": 1,
-      "title": "Module title",
-      "description": "Short summary",
+      "title": "Specific module title",
+      "description": "2-3 sentence explanation",
+      "estimatedHours": 6,
       "resources": [
         {
-          "title": "Resource name",
-          "url": "https://real-link.com",
-          "sourceType": "VIDEO|ARTICLE|BOOK|COURSE|OTHER",
-          "description": "Short description"
+          "title": "Resource Name",
+          "url": "https://working-link.com",
+          "sourceType": "VIDEO|ARTICLE|COURSE|DOCUMENTATION",
+          "description": "1 sentence summary"
         }
       ]
     }
   ]
 }
 
-Rules:
-- Produce 3 to 5 modules.
-- Each module must contain 2 to 4 real, valid learning resources.
-- Use only real links from reputable websites.
-- Allowed domains:
-  - YouTube
-  - Coursera
-  - Udemy
-  - freeCodeCamp
-  - MDN Web Docs
-  - W3Schools
-  - TowardsDataScience
-  - Real Python
-  - official documentation sites
+RULES:
+- 6-7 modules, clear progression
+- 2-4 REAL resources per module
+- No example.com or placeholder URLs
+- Use only verified sources
 
-STRICT RULES:
-- Do NOT use example.com or placeholder URLs.
-- Do NOT use lorem ipsum anything.
-- Do NOT invent fake company URLs.
-- All URLs must be real, working links.
-- Output must be valid JSON only. No extra text.
+Return ONLY the JSON.
+  `.trim();
 
-Goal: "${goalTitle}"
-Level: "${userLevel}"
-  `;
+  const result = await tryFallback(prompt);
+  return result.data;
+}
 
-  try {
-    const result = await retry(() => model.generateContent(prompt));
+async function generateAdaptiveSuggestion(contextPrompt) {
+  const prompt = `
+You are an adaptive learning system. Return VALID JSON ONLY.
 
-    const text = result.response.text();
+${contextPrompt}
 
-    const clean = text.replace(/```json|```/g, "").trim();
-
-    try {
-      return JSON.parse(clean);
-    } catch (innerErr) {
-      const match = clean.match(/\{[\s\S]*\}/);
-      if (match) {
-        return JSON.parse(match[0]);
+OUTPUT:
+{
+  "modules": [{
+    "order": 0,
+    "title": "Unique, specific title",
+    "description": "2-3 sentences",
+    "estimatedHours": 4,
+    "resources": [
+      {
+        "title": "Resource Name",
+        "url": "https://working-link.com",
+        "sourceType": "VIDEO|ARTICLE|COURSE|DOCUMENTATION",
+        "description": "1 sentence summary"
       }
+    ]
+  }]
+}
 
-      throw innerErr;
-    }
-  } catch (err) {
-    console.error("Gemini JSON parse failed:", err.message);
-    throw new Error("AI returned invalid JSON. Could not generate roadmap.");
-  }
+RULES:
+- 1 module only
+- Must build on previous work
+- Exactly 2 real resources
+- No placeholder URLs
+
+Return ONLY the JSON.
+  `.trim();
+
+  const result = await tryFallback(prompt);
+  return result.data;
+}
+
+module.exports = {
+  generateFullRoadmap,
+  generateAdaptiveSuggestion,
 };
-
-module.exports = { generateRoadmapFromGemini };

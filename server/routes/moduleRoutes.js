@@ -7,9 +7,9 @@ router.put("/:id", updateModule);
 
 router.get("/goal/:goalId", async (req, res) => {
   try {
-    const modules = await LearningModule.find({
-      goalPlanId: req.params.goalId,
-    });
+    const modules = await LearningModule.find({ goalPlanId: req.params.goalId })
+      .populate("resourceIds")
+      .sort({ order: 1 });
 
     if (!modules || modules.length === 0) {
       return res

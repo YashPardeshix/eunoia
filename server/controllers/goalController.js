@@ -2,13 +2,17 @@ const asyncHandler = require("../middleware/asyncHandler");
 const GoalPlan = require("../models/GoalPlan");
 const LearningModule = require("../models/LearningModule");
 const Resource = require("../models/Resource");
-const { generateRoadmapFromGemini } = require("../services/geminiService");
+
+const { generateFullRoadmap } = require("../services/geminiService");
+const { searchSerpForTopic } = require("../services/serpService");
+const { searchYouTubePlayable } = require("../services/youtubeService");
+const { mergeAndClassify } = require("../services/resourceClassifier");
 
 const createGoal = asyncHandler(async (req, res) => {
   try {
     const { goalTitle, userLevel = "BEGINNER" } = req.body;
 
-    if (!goalTitle || !goalTitle.trim()) {
+    if (!goalTitle?.trim()) {
       return res.status(400).json({
         success: false,
         message: "Goal title is required",
@@ -17,25 +21,20 @@ const createGoal = asyncHandler(async (req, res) => {
 
     let aiData;
     try {
-      aiData = await generateRoadmapFromGemini(goalTitle.trim(), userLevel);
-    } catch (aiErr) {
-      console.error(
-        "Gemini failed:",
-        aiErr && aiErr.message ? aiErr.message : aiErr
-      );
+      aiData = await generateFullRoadmap(goalTitle.trim(), userLevel);
+    } catch (err) {
+      console.error("Gemini error:", err);
       return res.status(502).json({
         success: false,
-        message:
-          "AI failed to generate a roadmap (provider overloaded or returned invalid data). Please try again shortly.",
+        message: "AI failed to generate a roadmap. Please try again shortly.",
       });
     }
 
     const modulesFromAI = Array.isArray(aiData?.modules) ? aiData.modules : [];
-
-    if (modulesFromAI.length === 0) {
+    if (!modulesFromAI.length) {
       return res.status(502).json({
         success: false,
-        message: "AI did not return any modules",
+        message: "AI returned no modules",
       });
     }
 
@@ -49,28 +48,60 @@ const createGoal = asyncHandler(async (req, res) => {
     const createdModuleIds = [];
 
     for (const mod of modulesFromAI) {
+      const aiResources = Array.isArray(mod.resources)
+        ? mod.resources.map((r) => ({
+            title: r.title || "",
+            url: r.url || "",
+            sourceType: (r.sourceType || "").toUpperCase(),
+            description: r.description || "",
+          }))
+        : [];
+
+      let serpResults = [];
+      try {
+        const q = `${goalTitle} ${mod.title || ""}`.trim();
+        if (q) serpResults = await searchSerpForTopic(q);
+      } catch {
+        serpResults = [];
+      }
+
+      let youtubeResults = [];
+      try {
+        youtubeResults = await searchYouTubePlayable(
+          `${goalTitle} ${mod.title}`,
+          5
+        );
+      } catch {
+        youtubeResults = [];
+      }
+
+      const mergedResources = mergeAndClassify(
+        aiResources,
+        serpResults,
+        youtubeResults
+      );
+
+      // Create module
       const moduleDoc = await LearningModule.create({
         goalPlanId: goal._id,
-        title: mod.title,
-        description: mod.description,
-        order: mod.order,
+        title: mod.title || "Untitled Module",
+        description: mod.description || "",
+        order: typeof mod.order === "number" ? mod.order : 0,
         resourceIds: [],
         isCompleted: false,
       });
 
-      const resources = Array.isArray(mod.resources) ? mod.resources : [];
-      if (resources.length > 0) {
-        const inserted = await Resource.insertMany(
-          resources.map((r) => ({
-            moduleId: moduleDoc._id,
-            title: r.title,
-            url: r.url,
-            sourceType: r.sourceType,
-            description: r.description ?? "",
-          }))
-        );
+      if (mergedResources.length > 0) {
+        const resourceDocs = mergedResources.map((r) => ({
+          moduleId: moduleDoc._id,
+          title: r.title || r.url || "Resource",
+          url: r.url || "#",
+          sourceType: (r.type || "OTHER").toUpperCase(),
+          description: r.description || "",
+        }));
 
-        moduleDoc.resourceIds = inserted.map((r) => r._id);
+        const inserted = await Resource.insertMany(resourceDocs);
+        moduleDoc.resourceIds = inserted.map((x) => x._id);
         await moduleDoc.save();
       }
 
@@ -92,27 +123,25 @@ const createGoal = asyncHandler(async (req, res) => {
       data: populatedGoal,
     });
   } catch (err) {
-    console.error(
-      "Goal creation failed:",
-      err && err.message ? err.message : err
-    );
+    console.error("Create Goal Error:", err);
     return res.status(500).json({
       success: false,
-      message: "Server error while creating goal. Please try again.",
+      message: "Server error while creating goal",
     });
   }
 });
 
 const getGoalById = asyncHandler(async (req, res) => {
-  const { goalId } = req.params;
-
-  if (!goalId) {
-    return res
-      .status(400)
-      .json({ success: false, message: "goalId is required" });
-  }
-
   try {
+    const { goalId } = req.params;
+
+    if (!goalId) {
+      return res.status(400).json({
+        success: false,
+        message: "Goal ID is required",
+      });
+    }
+
     const goal = await GoalPlan.findById(goalId).populate({
       path: "moduleIds",
       model: "LearningModule",
@@ -121,17 +150,18 @@ const getGoalById = asyncHandler(async (req, res) => {
     });
 
     if (!goal) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Goal not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Goal not found",
+      });
     }
 
-    return res.status(200).json({ success: true, data: goal });
+    return res.status(200).json({
+      success: true,
+      data: goal,
+    });
   } catch (err) {
-    console.error(
-      "getGoalById failed:",
-      err && err.message ? err.message : err
-    );
+    console.error("Get Goal Error:", err);
     return res.status(500).json({
       success: false,
       message: "Server error while fetching goal",
@@ -139,7 +169,4 @@ const getGoalById = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = {
-  createGoal,
-  getGoalById,
-};
+module.exports = { createGoal, getGoalById };

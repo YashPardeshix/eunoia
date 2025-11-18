@@ -7,87 +7,73 @@ import "../styles/dashboard.css";
 
 export default function DashboardContainer() {
   const { goalId } = useParams();
-
   const [goalData, setGoalData] = useState(null);
   const [modules, setModules] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  // Fetch full dashboard data on mount
+  const fetchGoal = async () => {
+    try {
+      const res = await fetch(`/api/goals/${goalId}`);
+      const json = await res.json();
+
+      if (!res.ok) throw new Error(json.message);
+
+      const goal = json.data;
+      setGoalData(goal);
+
+      const sorted = [...goal.moduleIds].sort(
+        (a, b) => (a.order ?? 999) - (b.order ?? 999)
+      );
+      setModules(sorted);
+    } catch (e) {
+      console.error("Fetch goal failed:", e);
+    }
+  };
+
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        // 1. fetch goal details
-        const goalRes = await fetch(`/api/goals/${goalId}`);
-        const goalJson = await goalRes.json();
-
-        if (!goalRes.ok) throw new Error(goalJson.message);
-        const goal = goalJson.data;
-
-        // 2. fetch modules
-        const modulesRes = await fetch(`/api/modules/goal/${goalId}`);
-        const modulesJson = await modulesRes.json();
-
-        if (!modulesRes.ok) throw new Error(modulesJson.message);
-
-        const modulesList = modulesJson.data;
-
-        // 3. fetch resources for each module
-        const modulesWithResources = await Promise.all(
-          modulesList.map(async (module) => {
-            const res = await fetch(`/api/resources/module/${module._id}`);
-            const resJson = await res.json();
-            return {
-              id: module._id,
-              title: module.title,
-              description: module.description,
-              isCompleted: module.isCompleted,
-              order: module.order,
-              resources: resJson.data.map((r) => ({
-                title: r.title,
-                url: r.url,
-                type: r.sourceType?.toLowerCase() || "other",
-                description: r.description,
-              })),
-            };
-          })
-        );
-
-        setGoalData(goal);
-        setModules(modulesWithResources);
-      } catch (err) {
-        console.error("Dashboard load failed:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDashboard();
+    fetchGoal();
   }, [goalId]);
 
   const handleModuleToggle = async (moduleId) => {
-    const target = modules.find((m) => m.id === moduleId);
+    const target = modules.find((m) => m._id === moduleId);
     if (!target) return;
 
     const newState = !target.isCompleted;
 
     try {
-      await fetch(`/api/modules/${moduleId}`, {
+      const res = await fetch(`/api/modules/${moduleId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isCompleted: newState }),
       });
 
+      const json = await res.json();
+
+      if (!res.ok) {
+        console.error("Module update failed:", json);
+        return;
+      }
+
       setModules((prev) =>
         prev.map((m) =>
-          m.id === moduleId ? { ...m, isCompleted: newState } : m
+          m._id === moduleId ? { ...m, isCompleted: newState } : m
         )
       );
+
+      if (json.data?.suggestion) {
+        const newMod = json.data.suggestion;
+
+        setModules((prev) =>
+          [...prev, newMod].sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+        );
+      }
+
+      await fetchGoal();
     } catch (err) {
       console.error("Toggle failed:", err);
     }
   };
 
-  if (loading || !goalData) {
+  if (!goalData) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center text-xl">
         Loading your roadmap...
@@ -100,33 +86,44 @@ export default function DashboardContainer() {
     ? Math.round((completed / modules.length) * 100)
     : 0;
 
-  const getResourceIcon = (type) => {
+  const getResourceIcon = (typeRaw) => {
+    const type = (typeRaw || "OTHER").toLowerCase();
     const icons = {
       video: "▶️",
-      book: "📚",
+      article: "📝",
       blog: "📝",
+      book: "📚",
       course: "🎓",
       other: "🔗",
     };
     return icons[type] || "🔗";
   };
 
+  const safeUrlHostname = (url) => {
+    try {
+      if (url && url.startsWith("http")) {
+        return new URL(url).hostname;
+      }
+    } catch {
+      // ...
+    }
+    return "Unknown Source";
+  };
+
   return (
     <main className="min-h-screen bg-background text-foreground overflow-hidden relative">
-      {/* Background glow */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse opacity-30"></div>
+        <div className="absolute top-20 left-10 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse opacity-30" />
         <div
           className="absolute bottom-40 right-20 w-80 h-80 bg-primary/5 rounded-full blur-3xl animate-pulse opacity-20"
           style={{ animationDelay: "1s" }}
-        ></div>
+        />
         <div
           className="absolute top-1/2 left-1/2 w-72 h-72 bg-primary/3 rounded-full blur-3xl animate-pulse opacity-20"
           style={{ animationDelay: "2s" }}
-        ></div>
+        />
       </div>
 
-      {/* Header */}
       <header className="bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-40 relative">
         <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
           <a
@@ -146,9 +143,7 @@ export default function DashboardContainer() {
         </div>
       </header>
 
-      {/* Body */}
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12 relative z-10">
-        {/* Title */}
         <div className="text-center space-y-6 mb-12">
           <div className="inline-block px-4 py-2 bg-primary/10 rounded-full border border-primary/30 backdrop-blur">
             <span className="text-primary font-semibold text-sm flex items-center gap-2">
@@ -166,7 +161,6 @@ export default function DashboardContainer() {
           </p>
         </div>
 
-        {/* Progress bar */}
         {modules.length > 0 && (
           <div className="w-full bg-card/50 border border-border/30 rounded-2xl p-8 backdrop-blur-sm group">
             <div className="relative space-y-4">
@@ -181,19 +175,18 @@ export default function DashboardContainer() {
                 <div
                   className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all duration-500"
                   style={{ width: `${progress}%` }}
-                ></div>
+                />
               </div>
             </div>
           </div>
         )}
 
-        {/* Modules */}
         <div className="space-y-16 mt-16">
           {modules.map((mod, index) => (
-            <div key={mod.id} className="group">
+            <div key={mod._id} className="group">
               <div className="flex items-start gap-8 mb-8">
                 <div className="flex-shrink-0 relative">
-                  <div className="absolute inset-0 bg-primary/20 blur-lg rounded-lg"></div>
+                  <div className="absolute inset-0 bg-primary/20 blur-lg rounded-lg" />
                   <div className="relative w-20 h-20 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center ai-glow">
                     <span className="text-3xl font-bold text-primary">
                       {String(index + 1).padStart(2, "0")}
@@ -205,9 +198,8 @@ export default function DashboardContainer() {
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <h2 className="text-3xl font-bold">{mod.title}</h2>
 
-                    {/* Completion Toggle */}
                     <button
-                      onClick={() => handleModuleToggle(mod.id)}
+                      onClick={() => handleModuleToggle(mod._id)}
                       className={`p-2 rounded-lg transition-all ${
                         mod.isCompleted
                           ? "bg-primary/20 text-primary ai-glow"
@@ -224,51 +216,59 @@ export default function DashboardContainer() {
                 </div>
               </div>
 
-              {/* Resources */}
-              {mod.resources.length > 0 && (
+              {Array.isArray(mod.resourceIds) && mod.resourceIds.length > 0 && (
                 <div className="bg-card/50 border border-border/30 rounded-2xl p-8 backdrop-blur-sm">
                   <h3 className="font-semibold text-sm uppercase tracking-widest text-primary mb-6">
                     Resources
                   </h3>
 
                   <div className="grid md:grid-cols-2 gap-4">
-                    {mod.resources.map((res, idx) => (
-                      <a
-                        key={idx}
-                        href={res.url}
-                        target="_blank"
-                        className="relative bg-background/50 border border-border rounded-xl p-5 hover:border-primary/50 transition group overflow-hidden"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="text-2xl">
-                            {getResourceIcon(res.type)}
-                          </div>
+                    {mod.resourceIds.map((res, idx) => {
+                      const category = res.sourceType || res.type || "OTHER";
+                      const safeHref =
+                        res.url && res.url.startsWith("http") ? res.url : "#";
 
-                          <div className="flex-grow">
-                            <div className="font-semibold group-hover:text-primary transition">
-                              {res.title}
+                      return (
+                        <a
+                          key={idx}
+                          href={safeHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="relative bg-background/50 border border-border rounded-xl p-5 hover:border-primary/50 transition group overflow-hidden"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="text-2xl">
+                              {getResourceIcon(category)}
                             </div>
-                            <div className="text-xs text-muted-foreground capitalize">
-                              {res.type}
-                            </div>
-                          </div>
 
-                          <ArrowRight
-                            size={18}
-                            className="text-primary/60 group-hover:text-primary group-hover:translate-x-1 transition"
-                          />
-                        </div>
-                      </a>
-                    ))}
+                            <div className="flex-grow">
+                              <div className="font-semibold group-hover:text-primary transition">
+                                {res.title ||
+                                  res.name ||
+                                  safeUrlHostname(res.url)}
+                              </div>
+                              <div className="text-xs text-muted-foreground capitalize">
+                                {(category || "other").toLowerCase()}
+                              </div>
+                            </div>
+
+                            <ArrowRight
+                              size={18}
+                              className="text-primary/60 group-hover:text-primary group-hover:translate-x-1 transition"
+                            />
+                          </div>
+                        </a>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               {index < modules.length - 1 && (
                 <div className="mt-16 flex items-center gap-4">
-                  <div className="flex-grow h-px bg-border/50"></div>
+                  <div className="flex-grow h-px bg-border/50" />
                   <div className="text-primary/40 font-semibold">·</div>
-                  <div className="flex-grow h-px bg-border/50"></div>
+                  <div className="flex-grow h-px bg-border/50" />
                 </div>
               )}
             </div>
