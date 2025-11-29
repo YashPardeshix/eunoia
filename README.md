@@ -1,119 +1,91 @@
-Eunoia
+# Eunoia
 
 AI-driven curriculum generator that aggregates structured learning roadmaps from YouTube, Google Search, and LLM logic.
 
-Prerequisites
+## Prerequisites
 
-Node.js v18+
+- Node.js v18+
+- MongoDB (Atlas or Local)
+- Google Cloud Console Project (Custom Search, YouTube Data API)
+- Google AI Studio Key (Gemini)
+- SerpAPI Key (Optional, fallback)
 
-MongoDB (Atlas or Local)
+## Installation
 
-Google Cloud Console Project (Custom Search, YouTube Data API)
+### Backend
 
-Google AI Studio Key (Gemini)
+1. Navigate to server:
 
-SerpAPI Key (Optional, fallback)
+   ```bash
+   cd server
+   npm install
+   ```
 
-Installation
-Backend
+2. Create `.env` in `server/`:
 
-Navigate to server:
+   ```env
+   PORT=5000
+   MONGO_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/eunoia
 
-code
-Bash
-download
-content_copy
-expand_less
-cd server
-npm install
+   # Auth
+   JWT_SECRET=your_secure_secret
+   NODE_ENV=development
 
-Create .env in server/:
+   # AI & Search
+   GEMINI_API_KEY=AIza...
+   YOUTUBE_API_KEY=AIza...
 
-code
-Env
-download
-content_copy
-expand_less
-PORT=5000
-MONGO_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/eunoia
+   # Primary Search (Google Custom Search JSON API)
+   GOOGLE_SEARCH_API_KEY=AIza...
+   GOOGLE_CX=012345...
 
-# Auth
+   # Fallback Search
+   SERP_API_KEY=e45...
+   ```
 
-JWT_SECRET=your_secure_secret
-NODE_ENV=development
+3. Start server:
+   ```bash
+   npm run dev
+   ```
 
-# AI & Search
+### Frontend
 
-GEMINI_API_KEY=AIza...
-YOUTUBE_API_KEY=AIza...
+1. Navigate to client:
 
-# Primary Search (Google Custom Search JSON API)
+   ```bash
+   cd client
+   npm install
+   ```
 
-GOOGLE_SEARCH_API_KEY=AIza...
-GOOGLE_CX=012345...
+2. Configure proxy (ensure `vite.config.js` targets backend port).
 
-# Fallback Search
+3. Start client:
+   ```bash
+   npm run dev
+   ```
 
-SERP_API_KEY=e45...
+## Architecture
 
-Start server:
+**Stack:** MongoDB, Express, React, Node.js (MERN) + Vite.
 
-code
-Bash
-download
-content_copy
-expand_less
-npm run dev
-Frontend
+**Core Logic:**
 
-Navigate to client:
+1. **Curriculum Generation:** `geminiService.js` prompts Gemini 2.0/1.5 models for structured JSON modules.
+2. **Resource Retrieval:**
+   - **Video:** YouTube Data API (Top 3 results).
+   - **Text:** Google Custom Search (Top 3 filtered results).
+   - **Fallback:** SerpAPI triggers automatically if Google Search quota receives 429/403.
+   - **Failover:** Gemini hallucinated URLs (last resort) or Wikipedia search construction.
+3. **Auth:** HttpOnly Cookies containing JWTs. LocalStorage used strictly for non-sensitive UI state.
 
-code
-Bash
-download
-content_copy
-expand_less
-cd client
-npm install
+## Key Features
 
-Configure proxy (ensure vite.config.js targets backend port).
+- **Multi-Model Fallback:** Automatically rotates through `gemini-2.0-flash`, `gemini-3-pro-preview`, and `gemini-1.5-pro` on failure.
+- **Strict Typing:** Mongoose schemas enforce resource types (VIDEO, ARTICLE, DOCUMENTATION).
+- **Quota Management:** Console logs explicitly identify quota exhaustion for Google/SerpAPI.
+- **Resource filtering:** Auto-detects documentation vs courses vs books based on URL patterns.
+- **Protected Routes:** Middleware verifies JWT before allowing goal creation or dashboard access.
 
-Start client:
+```
 
-code
-Bash
-download
-content_copy
-expand_less
-npm run dev
-Architecture
-
-Stack: MongoDB, Express, React, Node.js (MERN) + Vite.
-
-Core Logic:
-
-Curriculum Generation: geminiService.js prompts Gemini 2.0/1.5 models for structured JSON modules.
-
-Resource Retrieval:
-
-Video: YouTube Data API (Top 3 results).
-
-Text: Google Custom Search (Top 3 filtered results).
-
-Fallback: SerpAPI triggers automatically if Google Search quota receives 429/403.
-
-Failover: Gemini hallucinated URLs (last resort) or Wikipedia search construction.
-
-Auth: HttpOnly Cookies containing JWTs. LocalStorage used strictly for non-sensitive UI state.
-
-Key Features
-
-Multi-Model Fallback: Automatically rotates through gemini-2.0-flash, gemini-3-pro-preview, and gemini-1.5-pro on failure.
-
-Strict Typing: Mongoose schemas enforce resource types (VIDEO, ARTICLE, DOCUMENTATION).
-
-Quota Management: Console logs explicitly identify quota exhaustion for Google/SerpAPI.
-
-Resource filtering: Auto-detects documentation vs courses vs books based on URL patterns.
-
-Protected Routes: Middleware verifies JWT before allowing goal creation or dashboard access.
+```
