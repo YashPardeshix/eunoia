@@ -87,5 +87,3 @@ AI-driven curriculum generator that aggregates structured learning roadmaps from
 - **Protected Routes:** Middleware verifies JWT before allowing goal creation or dashboard access.
 
 ```
-
-```
