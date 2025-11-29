@@ -17,7 +17,7 @@ const ResourceSchema = new mongoose.Schema(
     },
     sourceType: {
       type: String,
-      enum: ["VIDEO", "ARTICLE", "BOOK", "COURSE", "OTHER"],
+      enum: ["VIDEO", "ARTICLE", "BOOK", "COURSE", "DOCUMENTATION", "OTHER"],
       default: "OTHER",
     },
     description: {

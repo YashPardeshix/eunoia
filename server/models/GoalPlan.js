@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const GoalPlanSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: "User",
+    },
     goalTitle: {
       type: String,
       required: true,
@@ -27,5 +32,4 @@ const GoalPlanSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const GoalPlan = mongoose.model("GoalPlan", GoalPlanSchema);
-module.exports = GoalPlan;
+module.exports = mongoose.model("GoalPlan", GoalPlanSchema);

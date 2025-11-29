@@ -7,26 +7,45 @@ const LearningModuleSchema = new mongoose.Schema(
       ref: "GoalPlan",
       required: true,
     },
+
     title: {
       type: String,
       required: true,
       trim: true,
     },
+
     description: String,
     order: Number,
+
     isCompleted: {
       type: Boolean,
       default: false,
     },
+
     resourceIds: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Resource",
       },
     ],
+
+    isAdaptive: {
+      type: Boolean,
+      default: false,
+    },
+
+    difficulty: {
+      type: String,
+      enum: ["BEGINNER", "INTERMEDIATE", "ADVANCED"],
+      default: "INTERMEDIATE",
+    },
+
+    estimatedHours: {
+      type: Number,
+      default: 2,
+    },
   },
   { timestamps: true }
 );
 
-const LearningModule = mongoose.model("LearningModule", LearningModuleSchema);
-module.exports = LearningModule;
+module.exports = mongoose.model("LearningModule", LearningModuleSchema);

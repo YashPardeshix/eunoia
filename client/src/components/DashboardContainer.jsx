@@ -1,21 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { CheckCircle2, ArrowRight } from "lucide-react";
+import { CheckCircle2, ArrowRight, Plus } from "lucide-react";
 import "../styles/dashboard.css";
 
 export default function DashboardContainer() {
   const { goalId } = useParams();
   const [goalData, setGoalData] = useState(null);
   const [modules, setModules] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsState, setSuggestionsState] = useState({
+    loading: false,
+    fetched: false,
+    error: null,
+  });
+  const [acceptedIds, setAcceptedIds] = useState(new Set());
+  const [acceptingId, setAcceptingId] = useState(null);
 
-  const fetchGoal = async () => {
+  const fetchGoal = useCallback(async () => {
     try {
       const res = await fetch(`/api/goals/${goalId}`);
       const json = await res.json();
 
-      if (!res.ok) throw new Error(json.message);
+      if (!res.ok) throw new Error(json.message || "Failed to fetch goal");
 
       const goal = json.data;
       setGoalData(goal);
@@ -27,11 +35,12 @@ export default function DashboardContainer() {
     } catch (e) {
       console.error("Fetch goal failed:", e);
     }
-  };
+  }, [goalId]);
 
   useEffect(() => {
+    if (!goalId) return;
     fetchGoal();
-  }, [goalId]);
+  }, [goalId, fetchGoal]);
 
   const handleModuleToggle = async (moduleId) => {
     const target = modules.find((m) => m._id === moduleId);
@@ -59,17 +68,86 @@ export default function DashboardContainer() {
         )
       );
 
-      if (json.data?.suggestion) {
-        const newMod = json.data.suggestion;
-
-        setModules((prev) =>
-          [...prev, newMod].sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
-        );
-      }
-
       await fetchGoal();
     } catch (err) {
       console.error("Toggle failed:", err);
+    }
+  };
+
+  const originalModules = modules.filter((m) => !m.isAdaptive);
+  const originalComplete =
+    originalModules.length > 0 && originalModules.every((m) => m.isCompleted);
+
+  useEffect(() => {
+    if (
+      !originalComplete ||
+      suggestionsState.fetched ||
+      suggestionsState.loading
+    )
+      return;
+
+    async function loadSuggestions() {
+      setSuggestionsState({ loading: true, fetched: false, error: null });
+      try {
+        const res = await fetch(`/api/suggestions/${goalId}/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const json = await res.json();
+
+        if (!res.ok) {
+          throw new Error(json.message || "Failed to fetch suggestions");
+        }
+
+        setSuggestions(Array.isArray(json.data) ? json.data : []);
+        setSuggestionsState({ loading: false, fetched: true, error: null });
+      } catch (err) {
+        console.error("Suggestions fetch failed:", err);
+        setSuggestionsState({
+          loading: false,
+          fetched: true,
+          error: err.message || "Failed to fetch suggestions",
+        });
+      }
+    }
+
+    loadSuggestions();
+  }, [originalComplete, goalId]);
+
+  const handleAcceptSuggestion = async (suggestion) => {
+    if (!suggestion) return;
+    if (acceptedIds.has(suggestion.title)) return;
+
+    setAcceptingId(suggestion.title);
+    try {
+      const res = await fetch(`/api/suggestions/${goalId}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ suggestion }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.message || "Failed to accept suggestion");
+      }
+
+      const newModule = json.data;
+
+      setModules((prev) =>
+        [...prev, newModule].sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+      );
+
+      setAcceptedIds((prev) => {
+        const s = new Set(prev);
+        s.add(suggestion.title);
+        return s;
+      });
+
+      await fetchGoal();
+    } catch (err) {
+      console.error("Accept suggestion failed:", err);
+    } finally {
+      setAcceptingId(null);
     }
   };
 
@@ -105,7 +183,7 @@ export default function DashboardContainer() {
         return new URL(url).hostname;
       }
     } catch {
-      // ...
+      return "...";
     }
     return "Unknown Source";
   };
@@ -227,8 +305,35 @@ export default function DashboardContainer() {
                       const category = res.sourceType || res.type || "OTHER";
                       const safeHref =
                         res.url && res.url.startsWith("http") ? res.url : "#";
+                      const isExternal =
+                        typeof safeHref === "string" &&
+                        safeHref.startsWith("http");
 
-                      return (
+                      const inner = (
+                        <div className="flex items-center gap-4">
+                          <div className="text-2xl">
+                            {getResourceIcon(category)}
+                          </div>
+
+                          <div className="flex-grow">
+                            <div className="font-semibold group-hover:text-primary transition">
+                              {res.title ||
+                                res.name ||
+                                safeUrlHostname(res.url)}
+                            </div>
+                            <div className="text-xs text-muted-foreground capitalize">
+                              {(category || "other").toLowerCase()}
+                            </div>
+                          </div>
+
+                          <ArrowRight
+                            size={18}
+                            className="text-primary/60 group-hover:text-primary group-hover:translate-x-1 transition"
+                          />
+                        </div>
+                      );
+
+                      return isExternal ? (
                         <a
                           key={idx}
                           href={safeHref}
@@ -236,28 +341,15 @@ export default function DashboardContainer() {
                           rel="noreferrer"
                           className="relative bg-background/50 border border-border rounded-xl p-5 hover:border-primary/50 transition group overflow-hidden"
                         >
-                          <div className="flex items-center gap-4">
-                            <div className="text-2xl">
-                              {getResourceIcon(category)}
-                            </div>
-
-                            <div className="flex-grow">
-                              <div className="font-semibold group-hover:text-primary transition">
-                                {res.title ||
-                                  res.name ||
-                                  safeUrlHostname(res.url)}
-                              </div>
-                              <div className="text-xs text-muted-foreground capitalize">
-                                {(category || "other").toLowerCase()}
-                              </div>
-                            </div>
-
-                            <ArrowRight
-                              size={18}
-                              className="text-primary/60 group-hover:text-primary group-hover:translate-x-1 transition"
-                            />
-                          </div>
+                          {inner}
                         </a>
+                      ) : (
+                        <div
+                          key={idx}
+                          className="relative bg-background/50 border border-border rounded-xl p-5 transition group overflow-hidden"
+                        >
+                          {inner}
+                        </div>
                       );
                     })}
                   </div>
@@ -273,6 +365,139 @@ export default function DashboardContainer() {
               )}
             </div>
           ))}
+        </div>
+
+        {originalComplete && (
+          <div className="mt-24 animate-fade-in">
+            <div className="relative overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-b from-primary/10 to-background p-10 text-center mb-8 group">
+              <div className="relative z-10 flex flex-col items-center gap-4">
+                <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center ai-glow mb-2">
+                  <span className="text-3xl">🎯</span>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-4xl font-bold text-primary tracking-tight">
+                    🎉 Roadmap Complete!
+                  </h3>
+                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                    Great job. Here are focused next steps you can add to your
+                    path.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="h-8 w-1 bg-primary rounded-full" />
+                <h3 className="text-2xl font-bold">Recommended Next Steps</h3>
+              </div>
+
+              {suggestionsState.loading && (
+                <div className="text-sm text-muted-foreground">
+                  Loading recommendations...
+                </div>
+              )}
+
+              {suggestionsState.error && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-600">
+                  {suggestionsState.error}
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {suggestions.map((sugg, i) => {
+                  const added = acceptedIds.has(sugg.title);
+                  const isAccepting = acceptingId === sugg.title;
+                  return (
+                    <div
+                      key={sugg.title + i}
+                      className="group relative flex flex-col bg-card/40 backdrop-blur-sm border border-border/40 rounded-2xl overflow-hidden hover:border-primary/50 transition-all duration-300"
+                    >
+                      <div className="p-6 flex flex-col h-full gap-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-1">
+                            <h4 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors">
+                              {sugg.title}
+                            </h4>
+                            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                {sugg.difficulty || "INTERMEDIATE"}
+                              </span>
+                              <span>•</span>
+                              <span>{sugg.estimatedHours ?? "—"} hrs</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                          {sugg.description}
+                        </p>
+
+                        <div className="mt-auto pt-4 space-y-4">
+                          <div className="space-y-2">
+                            {(sugg.resources || [])
+                              .slice(0, 2)
+                              .map((r, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center gap-2 text-xs text-muted-foreground/80"
+                                >
+                                  <div className="w-1 h-1 rounded-full bg-primary/50" />
+                                  <span className="truncate">{r.title}</span>
+                                </div>
+                              ))}
+                          </div>
+
+                          <button
+                            onClick={() => handleAcceptSuggestion(sugg)}
+                            disabled={added || isAccepting}
+                            className={`w-full py-3 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 ${
+                              added
+                                ? "bg-green-500/10 text-green-500 border border-green-500/20 cursor-default"
+                                : "bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-primary/20"
+                            }`}
+                          >
+                            {added ? (
+                              <>
+                                <CheckCircle2 size={18} />
+                                <span>Added</span>
+                              </>
+                            ) : isAccepting ? (
+                              <>
+                                <span className="animate-spin">⟳</span>
+                                <span>Adding...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus size={18} />
+                                <span>Add to Roadmap</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {!suggestionsState.loading && suggestions.length === 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    No recommendations available right now.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-16 flex gap-4 justify-center flex-wrap pt-12 border-t border-border/50">
+          <a
+            href="/"
+            className="px-8 py-3 border border-primary/30 rounded-lg hover:border-primary/60 hover:bg-primary/5 transition font-semibold text-sm relative group"
+          >
+            Back to Home
+          </a>
         </div>
       </div>
     </main>

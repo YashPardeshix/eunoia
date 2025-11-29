@@ -2,11 +2,7 @@ const asyncHandler = require("../middleware/asyncHandler");
 const GoalPlan = require("../models/GoalPlan");
 const LearningModule = require("../models/LearningModule");
 const Resource = require("../models/Resource");
-
 const { generateFullRoadmap } = require("../services/geminiService");
-const { searchSerpForTopic } = require("../services/serpService");
-const { searchYouTubePlayable } = require("../services/youtubeService");
-const { mergeAndClassify } = require("../services/resourceClassifier");
 
 const createGoal = asyncHandler(async (req, res) => {
   try {
@@ -23,7 +19,7 @@ const createGoal = asyncHandler(async (req, res) => {
     try {
       aiData = await generateFullRoadmap(goalTitle.trim(), userLevel);
     } catch (err) {
-      console.error("Gemini error:", err);
+      console.error("Gemini Service Error:", err);
       return res.status(502).json({
         success: false,
         message: "AI failed to generate a roadmap. Please try again shortly.",
@@ -39,64 +35,33 @@ const createGoal = asyncHandler(async (req, res) => {
     }
 
     const goal = await GoalPlan.create({
+      user: req.user._id,
       goalTitle: goalTitle.trim(),
       userLevel,
       progressStatus: "IN_PROGRESS",
       moduleIds: [],
+      originalCount: modulesFromAI.length,
     });
 
     const createdModuleIds = [];
 
     for (const mod of modulesFromAI) {
-      const aiResources = Array.isArray(mod.resources)
-        ? mod.resources.map((r) => ({
-            title: r.title || "",
-            url: r.url || "",
-            sourceType: (r.sourceType || "").toUpperCase(),
-            description: r.description || "",
-          }))
-        : [];
-
-      let serpResults = [];
-      try {
-        const q = `${goalTitle} ${mod.title || ""}`.trim();
-        if (q) serpResults = await searchSerpForTopic(q);
-      } catch {
-        serpResults = [];
-      }
-
-      let youtubeResults = [];
-      try {
-        youtubeResults = await searchYouTubePlayable(
-          `${goalTitle} ${mod.title}`,
-          5
-        );
-      } catch {
-        youtubeResults = [];
-      }
-
-      const mergedResources = mergeAndClassify(
-        aiResources,
-        serpResults,
-        youtubeResults
-      );
-
-      // Create module
       const moduleDoc = await LearningModule.create({
         goalPlanId: goal._id,
         title: mod.title || "Untitled Module",
         description: mod.description || "",
         order: typeof mod.order === "number" ? mod.order : 0,
+        estimatedHours: mod.estimatedHours || 2,
         resourceIds: [],
         isCompleted: false,
       });
 
-      if (mergedResources.length > 0) {
-        const resourceDocs = mergedResources.map((r) => ({
+      if (mod.resources && mod.resources.length > 0) {
+        const resourceDocs = mod.resources.map((r) => ({
           moduleId: moduleDoc._id,
-          title: r.title || r.url || "Resource",
+          title: r.title || "Resource",
           url: r.url || "#",
-          sourceType: (r.type || "OTHER").toUpperCase(),
+          sourceType: (r.sourceType || "OTHER").toUpperCase(),
           description: r.description || "",
         }));
 
@@ -131,6 +96,26 @@ const createGoal = asyncHandler(async (req, res) => {
   }
 });
 
+const getMyGoals = asyncHandler(async (req, res) => {
+  try {
+    const goals = await GoalPlan.find({ user: req.user._id }).sort({
+      createdAt: -1,
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: goals.length,
+      data: goals,
+    });
+  } catch (err) {
+    console.error("Get My Goals Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching your goals",
+    });
+  }
+});
+
 const getGoalById = asyncHandler(async (req, res) => {
   try {
     const { goalId } = req.params;
@@ -156,6 +141,13 @@ const getGoalById = asyncHandler(async (req, res) => {
       });
     }
 
+    if (goal.user.toString() !== req.user._id.toString()) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized to view this goal",
+      });
+    }
+
     return res.status(200).json({
       success: true,
       data: goal,
@@ -169,4 +161,4 @@ const getGoalById = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { createGoal, getGoalById };
+module.exports = { createGoal, getGoalById, getMyGoals };
