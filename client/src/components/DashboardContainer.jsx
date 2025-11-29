@@ -112,7 +112,12 @@ export default function DashboardContainer() {
     }
 
     loadSuggestions();
-  }, [originalComplete, goalId]);
+  }, [
+    originalComplete,
+    goalId,
+    suggestionsState.fetched,
+    suggestionsState.loading,
+  ]);
 
   const handleAcceptSuggestion = async (suggestion) => {
     if (!suggestion) return;
