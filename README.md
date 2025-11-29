@@ -1,55 +1,119 @@
-# 🚀 Eunoia: AI-Powered Learning Coach
+Eunoia
 
-> "Stop researching, start learning."
+AI-driven curriculum generator that aggregates structured learning roadmaps from YouTube, Google Search, and LLM logic.
 
-## 💡 Core Problem Solved
+Prerequisites
 
-Learners waste significant time and mental effort curating a learning path and finding reliable resources. **Eunoia** instantly generates structured, personalized roadmaps.
+Node.js v18+
 
-## ✨ Features (Minimum Viable Product - MVP)
+MongoDB (Atlas or Local)
 
-The MVP is focused on delivering the core value:
+Google Cloud Console Project (Custom Search, YouTube Data API)
 
-- **Goal Input:** Users enter a free-text learning goal (e.g., "Learn backend development").
-- **AI Roadmap Generation:** An API call generates a structured path (modules, milestones, outcomes).
-- **Progress Tracking:** Users can mark topics complete and view overall progress.
-- **Adaptive Suggestions:** The AI provides the next step based on the user's latest progress.
+Google AI Studio Key (Gemini)
 
-## 🛠️ Technology Stack
+SerpAPI Key (Optional, fallback)
 
-This project is built using the industry-standard MERN stack with modern AI integration.
+Installation
+Backend
 
-| Layer                 | Technology              | Why We Chose It                                                               |
-| :-------------------- | :---------------------- | :---------------------------------------------------------------------------- |
-| **Frontend**          | React.js + Tailwind CSS | Component-based, dynamic UI, and professional styling.                        |
-| **Backend**           | Node.js (Express)       | Single-language development (JavaScript) for simplicity.                      |
-| **Database**          | MongoDB (NoSQL)         | Flexible schema ideal for dynamic AI-generated roadmaps.                      |
-| **AI/LLM**            | OpenAI API (GPT-4)      | For core generation and adaptive logic.                                       |
-| **Persistence (MVP)** | Local Storage           | Chosen as a pragmatic trade-off to simplify V1 and focus on core AI features. |
+Navigate to server:
 
-## 🎯 Success Criteria (The Definition of "Done")
+code
+Bash
+download
+content_copy
+expand_less
+cd server
+npm install
 
-1. User can create a learning goal and get an AI-generated roadmap.
-2. User can track and update learning progress.
-3. AI dynamically recommends the next learning step.
+Create .env in server/:
 
-## 🏗️ Architecture & Build Order (Our Professional Roadmap)
+code
+Env
+download
+content_copy
+expand_less
+PORT=5000
+MONGO_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/eunoia
 
-_This section will be filled out in Phase 3._
+# Auth
 
-## ⚙️ Setup & Installation
+JWT_SECRET=your_secure_secret
+NODE_ENV=development
 
-1. **Clone the repository:** `git clone [Your GitHub Repo URL]`
-2. **Install Dependencies:**
-   - **Backend:** `cd server` then `npm install`
-   - **Frontend:** `cd client` then `npm install`
-3. **Configuration:** Create a `.env` file in the `server` directory and add your OpenAI API key.
+# AI & Search
 
----
+GEMINI_API_KEY=AIza...
+YOUTUBE_API_KEY=AIza...
 
-### 🛣️ Future Work (V2 Roadmap)
+# Primary Search (Google Custom Search JSON API)
 
-- Full Authentication (Sign-up/Login)
-- Advanced Resource Curation (RAG/Vector DB integration)
-- AI Learning Coach Chat
-- Progress Analytics + Streaks
+GOOGLE_SEARCH_API_KEY=AIza...
+GOOGLE_CX=012345...
+
+# Fallback Search
+
+SERP_API_KEY=e45...
+
+Start server:
+
+code
+Bash
+download
+content_copy
+expand_less
+npm run dev
+Frontend
+
+Navigate to client:
+
+code
+Bash
+download
+content_copy
+expand_less
+cd client
+npm install
+
+Configure proxy (ensure vite.config.js targets backend port).
+
+Start client:
+
+code
+Bash
+download
+content_copy
+expand_less
+npm run dev
+Architecture
+
+Stack: MongoDB, Express, React, Node.js (MERN) + Vite.
+
+Core Logic:
+
+Curriculum Generation: geminiService.js prompts Gemini 2.0/1.5 models for structured JSON modules.
+
+Resource Retrieval:
+
+Video: YouTube Data API (Top 3 results).
+
+Text: Google Custom Search (Top 3 filtered results).
+
+Fallback: SerpAPI triggers automatically if Google Search quota receives 429/403.
+
+Failover: Gemini hallucinated URLs (last resort) or Wikipedia search construction.
+
+Auth: HttpOnly Cookies containing JWTs. LocalStorage used strictly for non-sensitive UI state.
+
+Key Features
+
+Multi-Model Fallback: Automatically rotates through gemini-2.0-flash, gemini-3-pro-preview, and gemini-1.5-pro on failure.
+
+Strict Typing: Mongoose schemas enforce resource types (VIDEO, ARTICLE, DOCUMENTATION).
+
+Quota Management: Console logs explicitly identify quota exhaustion for Google/SerpAPI.
+
+Resource filtering: Auto-detects documentation vs courses vs books based on URL patterns.
+
+Protected Routes: Middleware verifies JWT before allowing goal creation or dashboard access.
