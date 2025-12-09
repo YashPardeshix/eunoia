@@ -4,6 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { CheckCircle2, ArrowRight, Plus } from "lucide-react";
 import "../styles/dashboard.css";
+import {
+  fetchGoalById,
+  toggleModule,
+  generateSuggestions,
+  acceptSuggestion,
+} from "../lib/api";
 
 export default function DashboardContainer() {
   const { goalId } = useParams();
@@ -20,12 +26,8 @@ export default function DashboardContainer() {
 
   const fetchGoal = useCallback(async () => {
     try {
-      const res = await fetch(`/api/goals/${goalId}`);
-      const json = await res.json();
+      const goal = await fetchGoalById(goalId);
 
-      if (!res.ok) throw new Error(json.message || "Failed to fetch goal");
-
-      const goal = json.data;
       setGoalData(goal);
 
       const sorted = [...goal.moduleIds].sort(
@@ -49,18 +51,7 @@ export default function DashboardContainer() {
     const newState = !target.isCompleted;
 
     try {
-      const res = await fetch(`/api/modules/${moduleId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isCompleted: newState }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        console.error("Module update failed:", json);
-        return;
-      }
+      await toggleModule(moduleId, newState);
 
       setModules((prev) =>
         prev.map((m) =>
@@ -89,24 +80,19 @@ export default function DashboardContainer() {
     async function loadSuggestions() {
       setSuggestionsState({ loading: true, fetched: false, error: null });
       try {
-        const res = await fetch(`/api/suggestions/${goalId}/generate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        });
-        const json = await res.json();
+        const suggestionsData = await generateSuggestions(goalId);
 
-        if (!res.ok) {
-          throw new Error(json.message || "Failed to fetch suggestions");
-        }
-
-        setSuggestions(Array.isArray(json.data) ? json.data : []);
+        setSuggestions(Array.isArray(suggestionsData) ? suggestionsData : []);
         setSuggestionsState({ loading: false, fetched: true, error: null });
       } catch (err) {
         console.error("Suggestions fetch failed:", err);
         setSuggestionsState({
           loading: false,
           fetched: true,
-          error: err.message || "Failed to fetch suggestions",
+          error:
+            err.response?.data?.message ||
+            err.message ||
+            "Failed to fetch suggestions",
         });
       }
     }
@@ -125,18 +111,7 @@ export default function DashboardContainer() {
 
     setAcceptingId(suggestion.title);
     try {
-      const res = await fetch(`/api/suggestions/${goalId}/accept`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ suggestion }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.message || "Failed to accept suggestion");
-      }
-
-      const newModule = json.data;
+      const newModule = await acceptSuggestion(goalId, suggestion);
 
       setModules((prev) =>
         [...prev, newModule].sort((a, b) => (a.order ?? 999) - (b.order ?? 999))

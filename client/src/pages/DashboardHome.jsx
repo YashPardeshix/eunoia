@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, ArrowRight, Layout, Calendar, Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { fetchMyGoals } from "../lib/api";
 
 export default function DashboardHome() {
   const [goals, setGoals] = useState([]);
@@ -11,20 +12,17 @@ export default function DashboardHome() {
   const { userInfo } = useAuth();
 
   useEffect(() => {
-    async function fetchGoals() {
+    async function loadGoals() {
       try {
-        const res = await fetch("/api/goals/mygoals");
-        const json = await res.json();
-        if (res.ok) {
-          setGoals(json.data || []);
-        }
+        const data = await fetchMyGoals();
+        setGoals(data || []);
       } catch (error) {
         console.error("Failed to fetch goals", error);
       } finally {
         setLoading(false);
       }
     }
-    fetchGoals();
+    loadGoals();
   }, []);
 
   return (

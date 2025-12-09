@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, BookOpen, Zap, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { createGoal } from "../lib/api";
 
 export default function GoalInputForm() {
   const [topic, setTopic] = useState("");
@@ -29,33 +30,25 @@ export default function GoalInputForm() {
     setError(null);
 
     try {
-      const response = await fetch("/api/goals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          goalTitle: topic.trim(),
-          userLevel: levelMap[level],
-        }),
-      });
+      const newGoal = await createGoal(topic.trim(), levelMap[level]);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to generate roadmap");
-      }
-
-      navigate(`/dashboard/${result.data._id}`);
+      navigate(`/dashboard/${newGoal._id}`);
     } catch (err) {
       console.error("API Error:", err);
 
-      if (err.message.includes("AI returned invalid JSON")) {
+      const errorMessage = err.response?.data?.message || err.message || "";
+
+      if (errorMessage.includes("AI returned invalid JSON")) {
         setError(
           "Our AI provider is overloaded right now. Please wait a moment and try again."
         );
         return;
       }
 
-      if (err.message.includes("Unexpected end of JSON input")) {
+      if (
+        errorMessage.includes("Unexpected end of JSON input") ||
+        errorMessage.includes("502")
+      ) {
         setError(
           "The server did not respond correctly. Please try again in a few seconds."
         );
@@ -63,7 +56,7 @@ export default function GoalInputForm() {
       }
 
       setError(
-        err.message || "Something went wrong while generating your roadmap."
+        errorMessage || "Something went wrong while generating your roadmap."
       );
     } finally {
       setIsLoading(false);

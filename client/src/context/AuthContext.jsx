@@ -1,4 +1,5 @@
 import { createContext, useState, useContext } from "react";
+import { loginUser, registerUser, logoutUser } from "../lib/api";
 
 const AuthContext = createContext();
 
@@ -10,49 +11,32 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const res = await fetch("/api/users/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Login failed");
-      }
+      const data = await loginUser({ email, password });
 
       setUserInfo(data);
       localStorage.setItem("userInfo", JSON.stringify(data));
     } catch (err) {
       console.error("Login Error:", err);
-      throw err;
+
+      throw new Error(err.response?.data?.message || "Login failed");
     }
   };
 
   const register = async (name, email, password) => {
     try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Registration failed");
-      }
+      const data = await registerUser({ name, email, password });
 
       setUserInfo(data);
       localStorage.setItem("userInfo", JSON.stringify(data));
     } catch (err) {
       console.error("Registration Error:", err);
-      throw err;
+      throw new Error(err.response?.data?.message || "Registration failed");
     }
   };
 
   const logout = async () => {
     try {
-      await fetch("/api/users/logout", { method: "POST" });
+      await logoutUser();
     } catch (err) {
       console.error("Logout Error:", err);
     } finally {
@@ -67,6 +51,5 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
