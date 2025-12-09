@@ -1,15 +1,17 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { googleSearch } = require("./googleSearchService");
 const { searchYouTubePlayable } = require("./youtubeService");
+const redis = require("../config/redis"); // Ensure this file exists
 require("dotenv").config();
 
 const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const MODELS = [
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite-preview-02-05",
-  "gemini-1.5-flash",
-  "gemini-1.5-pro",
+  "gemini-2.5-flash",
+  "gemini-flash-latest",
+  "gemini-2.0-flash-001",
+  "gemini-2.0-flash-lite",
+  "gemini-2.5-pro-preview-03-25",
 ];
 
 async function runModel(prompt, modelName) {
@@ -157,6 +159,27 @@ async function ensureResources(
 }
 
 async function generateFullRoadmap(goalTitle, userLevel) {
+  const cacheKey = `roadmap:${goalTitle
+    .toLowerCase()
+    .trim()}:${userLevel.toLowerCase()}`;
+
+  if (redis) {
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        console.log("🚀 HIT: Serving Roadmap from Redis Cache");
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.warn(
+        "⚠️ Redis Read Error (Proceeding with generation):",
+        e.message
+      );
+    }
+  }
+
+  console.log("🐢 MISS: Generating Roadmap via AI...");
+
   const prompt = `
     Role: Expert Curriculum Designer & Technical Principal.
     Goal: Create a rigorous learning path for "${goalTitle}" (Level: ${userLevel}).
@@ -192,7 +215,18 @@ async function generateFullRoadmap(goalTitle, userLevel) {
     })
   );
 
-  return { modules: hydratedModules };
+  const finalResult = { modules: hydratedModules };
+
+  if (redis && finalResult.modules.length > 0) {
+    try {
+      await redis.set(cacheKey, JSON.stringify(finalResult), "EX", 604800);
+      console.log("💾 SAVED to Redis Cache");
+    } catch (e) {
+      console.warn("⚠️ Redis Write Error:", e.message);
+    }
+  }
+
+  return finalResult;
 }
 
 async function generateCompletionSuggestions(goalTitle, completedModules = []) {

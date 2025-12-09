@@ -20,7 +20,7 @@ const RegisterPage = () => {
     setIsLoading(true);
     try {
       await register(name, email, password);
-      navigate("/");
+      navigate("/goal");
     } catch (err) {
       setError(err.message || "Registration failed. Please try again.");
     } finally {
