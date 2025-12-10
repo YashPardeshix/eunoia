@@ -183,7 +183,7 @@ export default function DashboardContainer() {
       </div>
 
       <header className="bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-40 relative">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
           <a
             href="/"
             className="flex items-center gap-3 hover:opacity-80 transition group"
@@ -201,8 +201,8 @@ export default function DashboardContainer() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-12 space-y-12 relative z-10">
-        <div className="text-center space-y-6 mb-12">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12 space-y-8 md:space-y-12 relative z-10">
+        <div className="text-center space-y-4 md:space-y-6 mb-8 md:mb-12">
           <div className="inline-block px-4 py-2 bg-primary/10 rounded-full border border-primary/30 backdrop-blur">
             <span className="text-primary font-semibold text-sm flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
@@ -210,21 +210,21 @@ export default function DashboardContainer() {
             </span>
           </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold text-balance">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-balance leading-tight">
             {goalData.goalTitle}
           </h1>
 
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
             Your personalized learning roadmap with curated resources
           </p>
         </div>
 
         {modules.length > 0 && (
-          <div className="w-full bg-card/50 border border-border/30 rounded-2xl p-8 backdrop-blur-sm group">
+          <div className="w-full bg-card/50 border border-border/30 rounded-2xl p-6 md:p-8 backdrop-blur-sm group">
             <div className="relative space-y-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-foreground">Your Progress</h3>
-                <div className="text-3xl font-bold text-primary">
+                <div className="text-2xl md:text-3xl font-bold text-primary">
                   {progress}%
                 </div>
               </div>
@@ -239,26 +239,28 @@ export default function DashboardContainer() {
           </div>
         )}
 
-        <div className="space-y-16 mt-16">
+        <div className="space-y-12 md:space-y-16 mt-12 md:mt-16">
           {modules.map((mod, index) => (
             <div key={mod._id} className="group">
-              <div className="flex items-start gap-8 mb-8">
+              <div className="flex items-start gap-4 md:gap-8 mb-6 md:mb-8">
                 <div className="flex-shrink-0 relative">
                   <div className="absolute inset-0 bg-primary/20 blur-lg rounded-lg" />
-                  <div className="relative w-20 h-20 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center ai-glow">
-                    <span className="text-3xl font-bold text-primary">
+                  <div className="relative w-14 h-14 md:w-20 md:h-20 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center ai-glow">
+                    <span className="text-xl md:text-3xl font-bold text-primary">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex-grow pt-2">
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <h2 className="text-3xl font-bold">{mod.title}</h2>
+                <div className="flex-grow pt-1 md:pt-2">
+                  <div className="flex items-start justify-between gap-4 mb-2 md:mb-3">
+                    <h2 className="text-xl md:text-3xl font-bold leading-tight">
+                      {mod.title}
+                    </h2>
 
                     <button
                       onClick={() => handleModuleToggle(mod._id)}
-                      className={`p-2 rounded-lg transition-all ${
+                      className={`p-2 rounded-lg transition-all flex-shrink-0 ${
                         mod.isCompleted
                           ? "bg-primary/20 text-primary ai-glow"
                           : "bg-border/30 text-muted-foreground hover:bg-border/50 hover:text-primary"
@@ -268,19 +270,19 @@ export default function DashboardContainer() {
                     </button>
                   </div>
 
-                  <p className="text-muted-foreground text-lg">
+                  <p className="text-muted-foreground text-sm md:text-lg leading-relaxed">
                     {mod.description}
                   </p>
                 </div>
               </div>
 
               {Array.isArray(mod.resourceIds) && mod.resourceIds.length > 0 && (
-                <div className="bg-card/50 border border-border/30 rounded-2xl p-8 backdrop-blur-sm">
-                  <h3 className="font-semibold text-sm uppercase tracking-widest text-primary mb-6">
+                <div className="bg-card/50 border border-border/30 rounded-2xl p-6 md:p-8 backdrop-blur-sm">
+                  <h3 className="font-semibold text-xs md:text-sm uppercase tracking-widest text-primary mb-4 md:mb-6">
                     Resources
                   </h3>
 
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {mod.resourceIds.map((res, idx) => {
                       const category = res.sourceType || res.type || "OTHER";
                       const safeHref =
@@ -290,13 +292,13 @@ export default function DashboardContainer() {
                         safeHref.startsWith("http");
 
                       const inner = (
-                        <div className="flex items-center gap-4">
-                          <div className="text-2xl">
+                        <div className="flex items-center gap-3 md:gap-4">
+                          <div className="text-xl md:text-2xl">
                             {getResourceIcon(category)}
                           </div>
 
-                          <div className="flex-grow">
-                            <div className="font-semibold group-hover:text-primary transition">
+                          <div className="flex-grow min-w-0">
+                            <div className="font-semibold group-hover:text-primary transition truncate text-sm md:text-base">
                               {res.title ||
                                 res.name ||
                                 safeUrlHostname(res.url)}
@@ -308,7 +310,7 @@ export default function DashboardContainer() {
 
                           <ArrowRight
                             size={18}
-                            className="text-primary/60 group-hover:text-primary group-hover:translate-x-1 transition"
+                            className="text-primary/60 group-hover:text-primary group-hover:translate-x-1 transition flex-shrink-0"
                           />
                         </div>
                       );
@@ -319,14 +321,14 @@ export default function DashboardContainer() {
                           href={safeHref}
                           target="_blank"
                           rel="noreferrer"
-                          className="relative bg-background/50 border border-border rounded-xl p-5 hover:border-primary/50 transition group overflow-hidden"
+                          className="relative bg-background/50 border border-border rounded-xl p-4 md:p-5 hover:border-primary/50 transition group overflow-hidden"
                         >
                           {inner}
                         </a>
                       ) : (
                         <div
                           key={idx}
-                          className="relative bg-background/50 border border-border rounded-xl p-5 transition group overflow-hidden"
+                          className="relative bg-background/50 border border-border rounded-xl p-4 md:p-5 transition group overflow-hidden"
                         >
                           {inner}
                         </div>
@@ -337,7 +339,7 @@ export default function DashboardContainer() {
               )}
 
               {index < modules.length - 1 && (
-                <div className="mt-16 flex items-center gap-4">
+                <div className="mt-12 md:mt-16 flex items-center gap-4">
                   <div className="flex-grow h-px bg-border/50" />
                   <div className="text-primary/40 font-semibold">·</div>
                   <div className="flex-grow h-px bg-border/50" />
@@ -348,18 +350,18 @@ export default function DashboardContainer() {
         </div>
 
         {originalComplete && (
-          <div className="mt-24 animate-fade-in">
-            <div className="relative overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-b from-primary/10 to-background p-10 text-center mb-8 group">
+          <div className="mt-16 md:mt-24 animate-fade-in">
+            <div className="relative overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-b from-primary/10 to-background p-8 md:p-10 text-center mb-8 group">
               <div className="relative z-10 flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center ai-glow mb-2">
-                  <span className="text-3xl">🎯</span>
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary/20 flex items-center justify-center ai-glow mb-2">
+                  <span className="text-2xl md:text-3xl">🎯</span>
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-4xl font-bold text-primary tracking-tight">
+                  <h3 className="text-3xl md:text-4xl font-bold text-primary tracking-tight">
                     🎉 Roadmap Complete!
                   </h3>
-                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
                     Great job. Here are focused next steps you can add to your
                     path.
                   </p>
@@ -370,7 +372,9 @@ export default function DashboardContainer() {
             <div className="space-y-6">
               <div className="flex items-center gap-4 mb-4">
                 <div className="h-8 w-1 bg-primary rounded-full" />
-                <h3 className="text-2xl font-bold">Recommended Next Steps</h3>
+                <h3 className="text-xl md:text-2xl font-bold">
+                  Recommended Next Steps
+                </h3>
               </div>
 
               {suggestionsState.loading && (
@@ -385,7 +389,7 @@ export default function DashboardContainer() {
                 </div>
               )}
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {suggestions.map((sugg, i) => {
                   const added = acceptedIds.has(sugg.title);
                   const isAccepting = acceptingId === sugg.title;

@@ -8,6 +8,8 @@ import {
   Target,
   LogOut,
   LayoutDashboard,
+  Menu,
+  X,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -15,6 +17,7 @@ import "../styles/landing-page.css";
 
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { userInfo, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -23,13 +26,13 @@ export default function LandingPage() {
   }, []);
 
   const handleLogout = async () => {
+    setIsMenuOpen(false);
     await logout();
     navigate("/login");
   };
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-hidden relative">
-      {/* --- BACKGROUND BLOBS --- */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-20 left-10 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse opacity-30"></div>
         <div
@@ -42,10 +45,8 @@ export default function LandingPage() {
         ></div>
       </div>
 
-      {/* --- NAVBAR --- */}
       <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          {/* Logo */}
+        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group cursor-pointer">
             <div className="w-8 h-8 rounded bg-primary flex items-center justify-center relative ai-glow">
               <span className="font-bold text-primary-foreground text-lg">
@@ -60,7 +61,6 @@ export default function LandingPage() {
             </span>
           </Link>
 
-          {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center gap-8">
             <a
               href="#features"
@@ -85,13 +85,12 @@ export default function LandingPage() {
             </a>
           </div>
 
-          {/* Auth Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             {userInfo ? (
               <>
                 <Link
-                  to="/dashboard" // Update this if your dashboard route is different
-                  className="hidden md:flex items-center gap-2 text-foreground px-4 py-2 hover:text-primary transition font-semibold text-sm"
+                  to="/dashboard"
+                  className="flex items-center gap-2 text-foreground px-4 py-2 hover:text-primary transition font-semibold text-sm"
                 >
                   <LayoutDashboard size={18} />
                   Dashboard
@@ -122,10 +121,83 @@ export default function LandingPage() {
               </>
             )}
           </div>
+
+          <button
+            className="md:hidden text-foreground p-2 focus:outline-none"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
+
+        {isMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 w-full bg-background/95 backdrop-blur-xl border-b border-border p-6 shadow-2xl animate-in slide-in-from-top-5 z-50">
+            <div className="flex flex-col gap-6">
+              <a
+                href="#features"
+                onClick={() => setIsMenuOpen(false)}
+                className="text-lg font-medium text-muted-foreground hover:text-primary"
+              >
+                Features
+              </a>
+              <a
+                href="#how-it-works"
+                onClick={() => setIsMenuOpen(false)}
+                className="text-lg font-medium text-muted-foreground hover:text-primary"
+              >
+                How It Works
+              </a>
+              <a
+                href="#faq"
+                onClick={() => setIsMenuOpen(false)}
+                className="text-lg font-medium text-muted-foreground hover:text-primary"
+              >
+                FAQ
+              </a>
+
+              <hr className="border-border" />
+
+              {userInfo ? (
+                <>
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-2 text-lg font-medium text-foreground hover:text-primary"
+                  >
+                    <LayoutDashboard size={20} />
+                    Go to Dashboard
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 text-lg font-medium text-red-500 hover:text-red-400 text-left"
+                  >
+                    <LogOut size={20} />
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <Link
+                    to="/login"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full text-center py-3 rounded-lg border border-border font-semibold hover:bg-secondary transition"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/register"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full text-center py-3 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </nav>
 
-      {/* --- HERO SECTION --- */}
       <section className="pt-32 pb-20 px-6 md:px-0 relative z-10">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col items-center text-center">
@@ -174,7 +246,6 @@ export default function LandingPage() {
                 } transition-all duration-700`}
                 style={{ transitionDelay: mounted ? "0.3s" : "0s" }}
               >
-                {/* Dynamic CTA */}
                 <Link
                   to={userInfo ? "/goal" : "/register"}
                   className="bg-primary text-primary-foreground px-8 py-3 rounded-lg hover:bg-primary/90 transition font-semibold flex items-center justify-center gap-2 group ai-glow hover:scale-105 transform duration-200"
@@ -197,7 +268,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- FEATURES SECTION --- */}
       <section
         id="features"
         className="py-20 px-6 md:px-0 bg-secondary relative z-10"
@@ -258,7 +328,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- HOW IT WORKS SECTION --- */}
       <section id="how-it-works" className="py-20 px-6 md:px-0 relative z-10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
@@ -326,7 +395,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- FOOTER CALL TO ACTION --- */}
       <section className="py-20 px-6 md:px-0 bg-secondary border-t border-border relative z-10">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
@@ -348,7 +416,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- FOOTER --- */}
       <footer className="bg-card border-t border-border py-8 px-6 relative z-10">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 group cursor-pointer">
