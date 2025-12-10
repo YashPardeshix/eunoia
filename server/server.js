@@ -15,6 +15,8 @@ const DB = require("./db");
 const app = express();
 DB();
 
+app.set("trust proxy", 1);
+
 app.use(helmet());
 
 const allowedOrigins = [
