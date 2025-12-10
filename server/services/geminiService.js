@@ -1,7 +1,7 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { googleSearch } = require("./googleSearchService");
 const { searchYouTubePlayable } = require("./youtubeService");
-const redis = require("../config/redis"); // Ensure this file exists
+const redis = require("../config/redis");
 require("dotenv").config();
 
 const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -70,6 +70,7 @@ function detectType(url, title) {
 }
 
 async function generateBackupLinks(query) {
+  console.log(`🤖 AI BACKUP: Generating synthetic links for "${query}"...`);
   try {
     const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
     const prompt = `
@@ -102,12 +103,17 @@ async function ensureResources(
   const videoQuery = `${cleanTerm} tutorial`;
   const mixedQuery = `${cleanTerm} documentation course book guide -site:youtube.com`;
 
+  console.log(`🔎 SEARCHING: "${cleanTerm}"`);
+
   const [ytResult, googleResult] = await Promise.allSettled([
     searchYouTubePlayable(videoQuery, 5),
     googleSearch(mixedQuery),
   ]);
 
   const rawVideos = ytResult.status === "fulfilled" ? ytResult.value : [];
+  if (rawVideos.length > 0)
+    console.log(`   ✅ YouTube: Found ${rawVideos.length} videos`);
+
   const finalVideos = rawVideos.slice(0, videoLimit).map((v) => ({
     title: v.title,
     url: v.url,
@@ -117,11 +123,19 @@ async function ensureResources(
 
   let rawMixed = googleResult.status === "fulfilled" ? googleResult.value : [];
 
+  if (rawMixed.length > 0) {
+    console.log(`   ✅ Google Search: Found ${rawMixed.length} results`);
+  }
+
   if (rawMixed.length === 0 && process.env.SERP_API_KEY) {
+    console.log(`   ⚠️ Google failed. Attempting SerpAPI fallback...`);
     try {
       const { searchSerpForTopic } = require("./serpService");
       rawMixed = await searchSerpForTopic(mixedQuery);
-    } catch (e) {}
+      console.log(`   ✅ SerpAPI: Found ${rawMixed.length} results`);
+    } catch (e) {
+      console.log(`   ❌ SerpAPI failed: ${e.message}`);
+    }
   }
 
   let filteredMixed = rawMixed.filter(
@@ -141,10 +155,13 @@ async function ensureResources(
 
   if (finalMixed.length < 1) {
     const aiLinks = await generateBackupLinks(cleanTerm);
+    if (aiLinks.length > 0)
+      console.log(`   🤖 AI Backup: Generated ${aiLinks.length} links`);
     finalMixed = [...finalMixed, ...aiLinks].slice(0, mixedLimit);
   }
 
   if (finalMixed.length === 0) {
+    console.log(`   🚩 ALL FAILED. Fallback to Wikipedia.`);
     finalMixed.push({
       title: `${cleanTerm} - Wikipedia`,
       url: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(
