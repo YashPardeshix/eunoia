@@ -7,32 +7,61 @@ require("dotenv").config();
 const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const MODELS = [
-  "gemini-2.5-flash",
+  "gemini-exp-1206",
   "gemini-flash-latest",
-  "gemini-2.0-flash-001",
-  "gemini-2.0-flash-lite",
-  "gemini-2.5-pro-preview-03-25",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash-exp",
+  "gemini-2.5-pro",
 ];
+
+function cleanJsonText(text) {
+  let cleaned = text.replace(/```json|```/g, "").trim();
+
+  const firstOpen = cleaned.indexOf("{");
+  const lastClose = cleaned.lastIndexOf("}");
+  if (firstOpen !== -1 && lastClose !== -1) {
+    cleaned = cleaned.substring(firstOpen, lastClose + 1);
+  }
+
+  return cleaned.replace(/[\x00-\x1F\x7F]/g, "");
+}
 
 async function runModel(prompt, modelName) {
   try {
     const model = client.getGenerativeModel({ model: modelName });
     const result = await model.generateContent(prompt);
     const raw = result.response.text() || "";
-    const cleaned = raw.replace(/```json|```/g, "").trim();
-    const idx = cleaned.indexOf("{");
-    const jsonText = idx !== -1 ? cleaned.slice(idx) : cleaned;
-    return { data: JSON.parse(jsonText), error: null };
+
+    const cleaned = cleanJsonText(raw);
+    try {
+      return { data: JSON.parse(cleaned), error: null };
+    } catch (parseError) {
+      console.warn(
+        `⚠️ JSON Parse failed on ${modelName}. Attempting repair...`
+      );
+      const repaired = cleaned.replace(/\\/g, "/");
+      return { data: JSON.parse(repaired), error: null };
+    }
   } catch (err) {
-    console.error(`Model ${modelName} failed:`, err.message);
+    console.error(`❌ Model ${modelName} failed:`, err.message);
     return { data: null, error: err };
   }
 }
 
 async function tryFallback(prompt) {
   for (const model of MODELS) {
+    console.log(`🤖 Trying model: ${model}...`);
     const out = await runModel(prompt, model);
+
     if (out.data) return out;
+
+    if (
+      out.error &&
+      (out.error.message.includes("429") || out.error.message.includes("503"))
+    ) {
+      console.log("⏳ Rate limit/Busy. Waiting 2s...");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
   }
   return { data: null };
 }
@@ -72,7 +101,7 @@ function detectType(url, title) {
 async function generateBackupLinks(query) {
   console.log(`🤖 AI BACKUP: Generating synthetic links for "${query}"...`);
   try {
-    const model = client.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = client.getGenerativeModel({ model: "gemini-flash-latest" });
     const prompt = `
       Task: Provide 3 high-authority URL resources for: "${query}".
       Rules:
@@ -81,12 +110,8 @@ async function generateBackupLinks(query) {
     `;
 
     const result = await model.generateContent(prompt);
-    const text = result.response
-      .text()
-      .replace(/```json|```/g, "")
-      .trim();
-    const idx = text.indexOf("[");
-    const json = JSON.parse(idx !== -1 ? text.substring(idx) : text);
+    const text = cleanJsonText(result.response.text());
+    const json = JSON.parse(text);
     return Array.isArray(json) ? json.slice(0, 3) : [];
   } catch (e) {
     return [];
@@ -206,6 +231,7 @@ async function generateFullRoadmap(goalTitle, userLevel) {
     1. Titles must be action-oriented and professional (e.g., "Advanced patterns" vs "More stuff").
     2. Progression must be logical: Theory -> Implementation -> Mastery.
     3. Descriptions must mention specific skills or concepts covered.
+    4. CONSTRAINT: Do NOT use backslashes in your output.
 
     Output (JSON ONLY):
     {
@@ -260,6 +286,7 @@ async function generateCompletionSuggestions(goalTitle, completedModules = []) {
     Requirements:
     1. Topics must be niche and highly employable (e.g., "Performance Optimization" or "Security Architecture").
     2. Do NOT suggest generic basics.
+    3. CONSTRAINT: Do NOT use backslashes in your output.
     
     Output (JSON ONLY):
     {
